@@ -1,6 +1,12 @@
 # kafka-poc-1publish-2consumer
 
-## Configuration
+## Overview
+
+This project demonstrates a simple Kafka setup with one producer and two consumers. The producer publishes messages to a Kafka topic, while the consumers read from that topic and process the messages.
+
+## Development
+
+### Configuration
 
 The application uses environment variables for configuration. Copy `.env.example` to `.env` and modify as needed:
 
@@ -13,7 +19,7 @@ Available environment variables:
 - `KAFKA_TOPIC` - Kafka topic name (default: `item-sold`)
 - `KAFKA_BROKER` - Kafka broker address (default: `localhost:9092`)
 
-## Commands
+### Commands
 
 Makefile gives you a smooth developer workflow:
 
