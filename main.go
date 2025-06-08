@@ -32,6 +32,8 @@ func main() {
 	mode := flag.String("mode", "producer", "mode: producer | inventory | analytics")
 	flag.Parse()
 
+	fmt.Printf("Running in mode: %s\n", *mode)
+
 	topic := getEnv("KAFKA_TOPIC", "item-sold")
 	broker := getEnv("KAFKA_BROKER", "localhost:9092")
 
