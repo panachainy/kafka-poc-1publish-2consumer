@@ -37,10 +37,13 @@ func main() {
 
 	switch *mode {
 	case "producer":
+		log.Println("Starting producer...")
 		produce(broker, topic)
 	case "inventory":
+		log.Println("Starting inventory consumer...")
 		consume(broker, topic, "inventory-group", handleInventory)
 	case "analytics":
+		log.Println("Starting analytics consumer...")
 		consume(broker, topic, "analytics-group", handleAnalytics)
 	default:
 		log.Fatalf("invalid mode %s", *mode)
