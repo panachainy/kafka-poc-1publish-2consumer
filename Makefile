@@ -13,9 +13,7 @@ all: build
 
 build:
 	$(GO) mod tidy
-	$(GO) build -o bin/producer -tags producer .
-	$(GO) build -o bin/inventory -tags inventory .
-	$(GO) build -o bin/analytics -tags analytics .
+	$(GO) build -o bin/$(APP) ./cmd
 
 # Start Kafka + Zookeeper
 up:
@@ -31,22 +29,22 @@ logs:
 
 # Run producer
 prod: build
-	./bin/producer
+	./bin/$(APP) -mode=producer
 
 # Run inventory consumer (in separate terminal)
 inv: build
-	./bin/inventory
+	./bin/$(APP) -mode=inventory
 
 # Run analytics consumer (in separate terminal)
 analytics: build
-	./bin/analytics
+	./bin/$(APP) -mode=analytics
 
 # Full cycle demo
 demo: up build
 	@echo "Starting producer in background..."
-	./bin/producer &
+	./bin/$(APP) -mode=producer &
 	@echo "Starting consumers..."
-	./bin/inventory & ./bin/analytics &
+	./bin/$(APP) -mode=inventory & ./bin/$(APP) -mode=analytics &
 	@echo "Use Ctrl-C to stop..."
 
 # Clean generated files
