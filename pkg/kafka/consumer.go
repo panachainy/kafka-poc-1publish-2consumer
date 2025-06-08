@@ -24,9 +24,10 @@ type Consumer struct {
 // NewConsumer creates a new Kafka consumer
 func NewConsumer(broker, topic, group string, maxRetries int) *Consumer {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: []string{broker},
-		Topic:   topic,
-		GroupID: group,
+		Brokers:        []string{broker},
+		Topic:          topic,
+		GroupID:        group,
+		CommitInterval: 0,
 	})
 
 	// Create a producer for dead letter queue
@@ -50,14 +51,16 @@ func (c *Consumer) Consume(handler MessageHandler) {
 
 	fmt.Printf("Started consumer [%s] with max retries: %d\n", c.group, c.maxRetries)
 	for {
+		log.Println("Step 1: Fetching message from Kafka")
 		m, err := c.reader.FetchMessage(context.Background())
 		if err != nil {
 			log.Fatal("fetch:", err)
 		}
 
+		log.Printf("Step 2: Received message, attempting to unmarshal (size: %d bytes)", len(m.Value))
 		var msg Message
 		if err := json.Unmarshal(m.Value, &msg); err != nil {
-			log.Println("unmarshal:", err)
+			log.Println("Step 2 failed - unmarshal:", err)
 			// Commit the message to skip malformed messages
 			if err := c.reader.CommitMessages(context.Background(), m); err != nil {
 				log.Println("commit after unmarshal error:", err)
@@ -65,9 +68,10 @@ func (c *Consumer) Consume(handler MessageHandler) {
 			continue
 		}
 
+		log.Printf("Step 3: Message unmarshaled successfully, ID: %s", msg.UniqueID)
 		mu.Lock()
 		if seen[msg.UniqueID] {
-			log.Println("duplicate skipped:", msg.UniqueID)
+			log.Printf("Step 4: Duplicate message detected and skipped: %s", msg.UniqueID)
 			mu.Unlock()
 			// Commit the duplicate message
 			if err := c.reader.CommitMessages(context.Background(), m); err != nil {
@@ -78,15 +82,18 @@ func (c *Consumer) Consume(handler MessageHandler) {
 
 		currentRetries := retryCount[msg.UniqueID]
 		mu.Unlock()
+		log.Printf("Step 4: Processing message %s (retry count: %d)", msg.UniqueID, currentRetries)
 
 		// Try to process the message with retry logic
 		if err := c.processWithRetry(msg, handler, currentRetries); err != nil {
+			log.Printf("Step 5: Message processing failed for %s: %v", msg.UniqueID, err)
 			mu.Lock()
 			retryCount[msg.UniqueID]++
 			currentRetries = retryCount[msg.UniqueID]
 			mu.Unlock()
 
 			if currentRetries >= c.maxRetries {
+				log.Printf("Step 6: Max retries reached for %s, sending to DLQ", msg.UniqueID)
 				// Send to dead letter queue after max retries
 				if dlqErr := c.producer.SendToDeadLetterQueue(msg, err.Error(), currentRetries, c.group); dlqErr != nil {
 					log.Printf("Failed to send to DLQ: %v", dlqErr)
@@ -99,13 +106,14 @@ func (c *Consumer) Consume(handler MessageHandler) {
 				delete(retryCount, msg.UniqueID)
 				mu.Unlock()
 
-				log.Printf("Message %s sent to DLQ after %d retries", msg.UniqueID, currentRetries)
+				log.Printf("Step 7: Message %s sent to DLQ after %d retries", msg.UniqueID, currentRetries)
 			} else {
-				log.Printf("Message %s failed, retry %d/%d: %v", msg.UniqueID, currentRetries, c.maxRetries, err)
+				log.Printf("Step 6: Message %s will retry (%d/%d): %v", msg.UniqueID, currentRetries, c.maxRetries, err)
 				// Don't commit yet, will retry
 				continue
 			}
 		} else {
+			log.Printf("Step 5: Message %s processed successfully", msg.UniqueID)
 			// Success - mark as seen and clean up retry count
 			mu.Lock()
 			seen[msg.UniqueID] = true
@@ -113,10 +121,12 @@ func (c *Consumer) Consume(handler MessageHandler) {
 			mu.Unlock()
 		}
 
+		log.Printf("Step 8: Committing message %s", msg.UniqueID)
 		// Commit the message
 		if err := c.reader.CommitMessages(context.Background(), m); err != nil {
 			log.Println("commit:", err)
 		}
+		log.Printf("Step 9: Message %s processing completed", msg.UniqueID)
 	}
 }
 
