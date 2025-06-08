@@ -10,9 +10,6 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-// MessageHandler defines the function signature for handling messages
-type MessageHandler func(Message)
-
 // Consumer handles Kafka message consumption
 type Consumer struct {
 	reader *kafka.Reader

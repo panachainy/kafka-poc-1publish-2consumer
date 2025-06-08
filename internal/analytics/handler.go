@@ -8,6 +8,7 @@ import (
 )
 
 // Handler processes analytics-related messages
-func Handler(msg kafka.Message) {
+func Handler(msg kafka.Message) error {
 	fmt.Printf("[Analytics] recording sale of %s sold at %v\n", msg.ItemID, time.Unix(msg.SoldAt, 0))
+	return nil
 }

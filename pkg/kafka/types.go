@@ -6,3 +6,6 @@ type Message struct {
 	SoldAt   int64  `json:"sold_at"`
 	UniqueID string `json:"unique_id"`
 }
+
+// MessageHandler defines the function signature for handling messages with error return
+type MessageHandler func(Message) error
