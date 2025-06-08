@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 
+	"kafka-poc-1publish-2consumer/internal/analytics"
+	"kafka-poc-1publish-2consumer/internal/inventory"
 	"kafka-poc-1publish-2consumer/pkg/kafka"
 )
 
@@ -40,12 +42,12 @@ func main() {
 		log.Println("Starting inventory consumer...")
 		consumer := kafka.NewConsumer(broker, topic, "inventory-group")
 		defer consumer.Close()
-		consumer.Consume(kafka.HandleInventory)
+		consumer.Consume(inventory.Handler)
 	case "analytics":
 		log.Println("Starting analytics consumer...")
 		consumer := kafka.NewConsumer(broker, topic, "analytics-group")
 		defer consumer.Close()
-		consumer.Consume(kafka.HandleAnalytics)
+		consumer.Consume(analytics.Handler)
 	default:
 		log.Fatalf("invalid mode %s", *mode)
 	}
