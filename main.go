@@ -6,11 +6,20 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/segmentio/kafka-go"
 )
+
+// getEnv returns the value of an environment variable or a default value
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
 // Message defines our event
 type Message struct {
@@ -23,8 +32,8 @@ func main() {
 	mode := flag.String("mode", "producer", "mode: producer | inventory | analytics")
 	flag.Parse()
 
-	topic := "item-sold"
-	broker := "localhost:9092"
+	topic := getEnv("KAFKA_TOPIC", "item-sold")
+	broker := getEnv("KAFKA_BROKER", "localhost:9092")
 
 	switch *mode {
 	case "producer":
