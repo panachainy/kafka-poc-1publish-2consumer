@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"kafka-poc-1publish-2consumer/internal/analytics"
 	"kafka-poc-1publish-2consumer/internal/inventory"
@@ -19,6 +20,16 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// getEnvInt returns the value of an environment variable as an integer or a default value
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+	}
+	return defaultValue
+}
+
 func main() {
 	mode := flag.String("mode", "producer", "mode: producer | inventory | analytics")
 	flag.Parse()
@@ -27,6 +38,7 @@ func main() {
 
 	topic := getEnv("KAFKA_TOPIC", "item-sold")
 	broker := getEnv("KAFKA_BROKER", "localhost:9092")
+	maxRetries := getEnvInt("KAFKA_MAX_RETRIES", 3)
 
 	switch *mode {
 	case "producer":
@@ -40,12 +52,12 @@ func main() {
 		}
 	case "inventory":
 		log.Println("Starting inventory consumer...")
-		consumer := kafka.NewConsumer(broker, topic, "inventory-group")
+		consumer := kafka.NewConsumer(broker, topic, "inventory-group", maxRetries)
 		defer consumer.Close()
 		consumer.Consume(inventory.Handler)
 	case "analytics":
 		log.Println("Starting analytics consumer...")
-		consumer := kafka.NewConsumer(broker, topic, "analytics-group")
+		consumer := kafka.NewConsumer(broker, topic, "analytics-group", maxRetries)
 		defer consumer.Close()
 		consumer.Consume(analytics.Handler)
 	default:

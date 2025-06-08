@@ -22,7 +22,7 @@ type Consumer struct {
 }
 
 // NewConsumer creates a new Kafka consumer
-func NewConsumer(broker, topic, group string) *Consumer {
+func NewConsumer(broker, topic, group string, maxRetries int) *Consumer {
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers: []string{broker},
 		Topic:   topic,
@@ -38,7 +38,7 @@ func NewConsumer(broker, topic, group string) *Consumer {
 		topic:      topic,
 		broker:     broker,
 		producer:   producer,
-		maxRetries: 3,
+		maxRetries: maxRetries,
 	}
 }
 

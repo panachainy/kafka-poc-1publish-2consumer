@@ -27,6 +27,7 @@ Available environment variables:
 
 - `KAFKA_TOPIC` - Kafka topic name (default: `item-sold`)
 - `KAFKA_BROKER` - Kafka broker address (default: `localhost:9092`)
+- `KAFKA_MAX_RETRIES` - Maximum number of retry attempts for failed messages (default: `3`)
 
 ### Commands
 
