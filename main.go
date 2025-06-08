@@ -51,6 +51,39 @@ func main() {
 }
 
 func produce(broker, topic string) {
+	// Create topic if it doesn't exist
+	conn, err := kafka.Dial("tcp", broker)
+	if err != nil {
+		log.Fatal("dial:", err)
+	}
+	defer conn.Close()
+
+	controller, err := conn.Controller()
+	if err != nil {
+		log.Fatal("controller:", err)
+	}
+	var controllerConn *kafka.Conn
+	controllerConn, err = kafka.Dial("tcp", fmt.Sprintf("%s:%d", controller.Host, controller.Port))
+	if err != nil {
+		log.Fatal("dial controller:", err)
+	}
+	defer controllerConn.Close()
+
+	topicConfigs := []kafka.TopicConfig{
+		{
+			Topic:             topic,
+			NumPartitions:     1,
+			ReplicationFactor: 1,
+		},
+	}
+
+	err = controllerConn.CreateTopics(topicConfigs...)
+	if err != nil {
+		log.Printf("create topic warning: %v (this is ok if topic already exists)", err)
+	} else {
+		log.Printf("created topic: %s", topic)
+	}
+
 	w := kafka.NewWriter(kafka.WriterConfig{
 		Brokers: []string{broker},
 		Topic:   topic,
@@ -64,7 +97,7 @@ func produce(broker, topic string) {
 		UniqueID: fmt.Sprintf("%d", time.Now().UnixNano()),
 	}
 	b, _ := json.Marshal(msg)
-	err := w.WriteMessages(context.Background(),
+	err = w.WriteMessages(context.Background(),
 		kafka.Message{
 			Key:   []byte(msg.ItemID),
 			Value: b,
