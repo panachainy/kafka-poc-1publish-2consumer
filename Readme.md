@@ -20,6 +20,9 @@ This project demonstrates a simple Kafka setup with one producer and two consume
     2025/06/08 17:53:23 Message 1749380002312649000 failed, retry 1/3: [Inventory] simulated failure for item ABC123
     ```
 
+    - it corrected but it will be retry delayed (do other process before retry again)
+      ![alt text](image.png)
+
 - [ ] In fail case over 3times, the consumer should send a message to a dead letter queue
 
 ## Development
