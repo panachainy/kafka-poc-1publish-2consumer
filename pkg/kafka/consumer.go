@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"sync"
+	"path/filepath"
 	"time"
+
+	"kafka-poc-1publish-2consumer/pkg/sqlite"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -19,6 +21,7 @@ type Consumer struct {
 	broker     string
 	producer   *Producer
 	maxRetries int
+	tracker    *sqlite.MessageTracker
 }
 
 // NewConsumer creates a new Kafka consumer
@@ -33,6 +36,13 @@ func NewConsumer(broker, topic, group string, maxRetries int) *Consumer {
 	// Create a producer for dead letter queue
 	producer := NewProducer(broker, topic)
 
+	// Initialize SQLite message tracker
+	dbPath := filepath.Join("data", fmt.Sprintf("%s_messages.db", group))
+	tracker, err := sqlite.NewMessageTracker(dbPath)
+	if err != nil {
+		log.Fatalf("Failed to initialize message tracker: %v", err)
+	}
+
 	return &Consumer{
 		reader:     reader,
 		group:      group,
@@ -40,15 +50,12 @@ func NewConsumer(broker, topic, group string, maxRetries int) *Consumer {
 		broker:     broker,
 		producer:   producer,
 		maxRetries: maxRetries,
+		tracker:    tracker,
 	}
 }
 
 // Consume starts consuming messages and calls the handler for each message
 func (c *Consumer) Consume(handler MessageHandler) {
-	seen := make(map[string]bool)
-	retryCount := make(map[string]int)
-	var mu sync.Mutex
-
 	fmt.Printf("Started consumer [%s] with max retries: %d\n", c.group, c.maxRetries)
 	for {
 		log.Println("Step 1: Fetching message from Kafka")
@@ -69,10 +76,16 @@ func (c *Consumer) Consume(handler MessageHandler) {
 		}
 
 		log.Printf("Step 3: Message unmarshaled successfully, ID: %s", msg.UniqueID)
-		mu.Lock()
-		if seen[msg.UniqueID] {
+
+		// Check if message has been seen before using SQLite
+		isSeen, err := c.tracker.IsSeen(msg.UniqueID, c.group)
+		if err != nil {
+			log.Printf("Error checking if message is seen: %v", err)
+			continue
+		}
+
+		if isSeen {
 			log.Printf("Step 4: Duplicate message detected and skipped: %s", msg.UniqueID)
-			mu.Unlock()
 			// Commit the duplicate message
 			if err := c.reader.CommitMessages(context.Background(), m); err != nil {
 				log.Println("commit duplicate:", err)
@@ -80,45 +93,57 @@ func (c *Consumer) Consume(handler MessageHandler) {
 			continue
 		}
 
-		currentRetries := retryCount[msg.UniqueID]
-		mu.Unlock()
+		// Get current retry count from SQLite
+		currentRetries, err := c.tracker.GetRetryCount(msg.UniqueID, c.group)
+		if err != nil {
+			log.Printf("Error getting retry count: %v", err)
+			continue
+		}
+
 		log.Printf("Step 4: Processing message %s (retry count: %d)", msg.UniqueID, currentRetries)
 
 		// Try to process the message with retry logic
 		if err := c.processWithRetry(msg, handler, currentRetries); err != nil {
 			log.Printf("Step 5: Message processing failed for %s: %v", msg.UniqueID, err)
-			mu.Lock()
-			retryCount[msg.UniqueID]++
-			currentRetries = retryCount[msg.UniqueID]
-			mu.Unlock()
 
-			if currentRetries >= c.maxRetries {
+			// Increment retry count in SQLite
+			newRetryCount, retryErr := c.tracker.IncrementRetryCount(msg.UniqueID, c.group)
+			if retryErr != nil {
+				log.Printf("Error incrementing retry count: %v", retryErr)
+				continue
+			}
+
+			if newRetryCount >= c.maxRetries {
 				log.Printf("Step 6: Max retries reached for %s, sending to DLQ", msg.UniqueID)
 				// Send to dead letter queue after max retries
-				if dlqErr := c.producer.SendToDeadLetterQueue(msg, err.Error(), currentRetries, c.group); dlqErr != nil {
+				if dlqErr := c.producer.SendToDeadLetterQueue(msg, err.Error(), newRetryCount, c.group); dlqErr != nil {
 					log.Printf("Failed to send to DLQ: %v", dlqErr)
 					// TODO: check this it really ok?
 				}
 
-				// Mark as processed and commit
-				mu.Lock()
-				seen[msg.UniqueID] = true
-				delete(retryCount, msg.UniqueID)
-				mu.Unlock()
+				// Mark as processed and clean up retry count
+				if markErr := c.tracker.MarkAsSeen(msg.UniqueID, c.group); markErr != nil {
+					log.Printf("Error marking message as seen: %v", markErr)
+				}
+				if delErr := c.tracker.DeleteRetryCount(msg.UniqueID, c.group); delErr != nil {
+					log.Printf("Error deleting retry count: %v", delErr)
+				}
 
-				log.Printf("Step 7: Message %s sent to DLQ after %d retries", msg.UniqueID, currentRetries)
+				log.Printf("Step 7: Message %s sent to DLQ after %d retries", msg.UniqueID, newRetryCount)
 			} else {
-				log.Printf("Step 6: Message %s will retry (%d/%d): %v", msg.UniqueID, currentRetries, c.maxRetries, err)
+				log.Printf("Step 6: Message %s will retry (%d/%d): %v", msg.UniqueID, newRetryCount, c.maxRetries, err)
 				// Don't commit yet, will retry
 				continue
 			}
 		} else {
 			log.Printf("Step 5: Message %s processed successfully", msg.UniqueID)
 			// Success - mark as seen and clean up retry count
-			mu.Lock()
-			seen[msg.UniqueID] = true
-			delete(retryCount, msg.UniqueID)
-			mu.Unlock()
+			if markErr := c.tracker.MarkAsSeen(msg.UniqueID, c.group); markErr != nil {
+				log.Printf("Error marking message as seen: %v", markErr)
+			}
+			if delErr := c.tracker.DeleteRetryCount(msg.UniqueID, c.group); delErr != nil {
+				log.Printf("Error deleting retry count: %v", delErr)
+			}
 		}
 
 		log.Printf("Step 8: Committing message %s", msg.UniqueID)
@@ -152,6 +177,9 @@ func (c *Consumer) processWithRetry(msg Message, handler MessageHandler, retryCo
 // Close closes the consumer
 func (c *Consumer) Close() error {
 	if err := c.reader.Close(); err != nil {
+		return err
+	}
+	if err := c.tracker.Close(); err != nil {
 		return err
 	}
 	return c.producer.Close()
