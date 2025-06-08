@@ -11,6 +11,15 @@ This project demonstrates a simple Kafka setup with one producer and two consume
   - [x] Support retry with exponential backoff
   - [x] Support retry with a maximum number of attempts
   - [ ] Support retry with multiple the same consumer group instances.
+  - [ ] Fix retry it not work now
+
+    ```sh
+    Started consumer [inventory-group] with max retries: 3
+    2025/06/08 17:52:48 Message 1749379967289769000 failed, retry 1/3: [Inventory] simulated failure for item ABC123
+    2025/06/08 17:53:06 Message 1749379985693294000 failed, retry 1/3: [Inventory] simulated failure for item ABC123
+    2025/06/08 17:53:23 Message 1749380002312649000 failed, retry 1/3: [Inventory] simulated failure for item ABC123
+    ```
+
 - [ ] In fail case over 3times, the consumer should send a message to a dead letter queue
 
 ## Development
