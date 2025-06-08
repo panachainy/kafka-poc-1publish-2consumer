@@ -4,6 +4,11 @@
 
 This project demonstrates a simple Kafka setup with one producer and two consumers. The producer publishes messages to a Kafka topic, while the consumers read from that topic and process the messages.
 
+### POC List
+
+- [x] 1 producer and 2 consumers getting messages from the same topic
+
+
 ## Development
 
 ### Configuration
