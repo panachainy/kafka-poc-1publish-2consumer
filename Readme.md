@@ -8,6 +8,9 @@ This project demonstrates a simple Kafka setup with one producer and two consume
 
 - [x] 1 producer and 2 consumers getting messages from the same topic
 - [ ] In fail case, the consumer should retry
+  - [x] Support retry with exponential backoff
+  - [x] Support retry with a maximum number of attempts
+  - [ ] Support retry with multiple the same consumer group instances.
 - [ ] In fail case over 3times, the consumer should send a message to a dead letter queue
 
 ## Development
