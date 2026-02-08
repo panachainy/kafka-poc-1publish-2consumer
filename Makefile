@@ -4,6 +4,8 @@
 COMPOSE_FILE = compose.yml
 # COMPOSE_CMD = docker-compose
 COMPOSE_CMD = podman-compose
+DOCKER_CMD = podman
+# DOCKER_CMD = docker
 GO = go
 APP = kafka-poc-1publish-2consumer
 MAIN = main.go
@@ -52,3 +54,8 @@ demo: up build
 # Clean generated files
 clean:
 	-rm -rf bin
+
+## Kafka debug
+
+topic.ls:
+	$(DOCKER_CMD) exec -it kafka kafka-topics --list --bootstrap-server localhost:9092
