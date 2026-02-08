@@ -57,5 +57,11 @@ clean:
 
 ## Kafka debug
 
-topic.ls:
+k.topic.ls:
 	$(DOCKER_CMD) exec -it kafka kafka-topics --list --bootstrap-server localhost:9092
+
+k.topic.des:
+	$(DOCKER_CMD) exec -it kafka kafka-topics --bootstrap-server localhost:9092 --describe --topic $(TOPIC)
+
+k.consume:
+	$(DOCKER_CMD) exec -it kafka kafka-console-consumer --bootstrap-server localhost:9092 --topic $(TOPIC) --from-beginning
