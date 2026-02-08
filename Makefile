@@ -1,7 +1,9 @@
 # Makefile
 
 # Variables
-COMPOSE_FILE = docker-compose.yml
+COMPOSE_FILE = compose.yml
+# COMPOSE_CMD = docker-compose
+COMPOSE_CMD = podman-compose
 GO = go
 APP = kafka-poc-1publish-2consumer
 MAIN = main.go
@@ -17,15 +19,15 @@ build:
 
 # Start Kafka + Zookeeper
 up:
-	docker compose -f $(COMPOSE_FILE) up -d
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) up -d
 
 # Stop containers
 down:
-	docker compose -f $(COMPOSE_FILE) down
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) down
 
 # Inspect logs
 logs:
-	docker compose -f $(COMPOSE_FILE) logs -f
+	$(COMPOSE_CMD) -f $(COMPOSE_FILE) logs -f
 
 # Run producer
 prod: build
