@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -37,7 +38,11 @@ func NewConsumer(broker, topic, group string, maxRetries int) *Consumer {
 	producer := NewProducer(broker, topic)
 
 	// Initialize SQLite message tracker
-	dbPath := filepath.Join("data", fmt.Sprintf("%s_messages.db", group))
+	dataDir := "data"
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		log.Fatalf("Failed to create data directory: %v", err)
+	}
+	dbPath := filepath.Join(dataDir, fmt.Sprintf("%s_messages.db", group))
 	tracker, err := sqlite.NewMessageTracker(dbPath)
 	if err != nil {
 		log.Fatalf("Failed to initialize message tracker: %v", err)

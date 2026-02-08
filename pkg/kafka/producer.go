@@ -73,7 +73,7 @@ func (p *Producer) Produce(itemID string) error {
 		return fmt.Errorf("write message: %w", err)
 	}
 
-	fmt.Println("Produced:", msg)
+	fmt.Printf("Produced: %+v \n", msg)
 	return nil
 }
 
